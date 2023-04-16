@@ -1,0 +1,122 @@
+---
+  - hosts: all
+    become: yes
+
+    vars_prompt:
+    - name: email
+      prompt: "Enter Your Email Address:"
+      private: no
+
+    pre_tasks:
+    - name: Get the OS release
+      command: cat /etc/redhat-release
+      register: OS_REL
+
+    - name: Get the VMware Version
+      shell: VAR6=`vmware-toolbox-cmd -v |wc -l`; if [ $VAR6 -eq 1 ] ; then echo `vmware-toolbox-cmd -v`;else echo "Physical"; fi
+      register: VMVer
+
+    - name: Update /boot usage
+      shell: df -hP /boot |awk ' { print $4 } ' |tail -1
+      register: BootFS
+
+    - name: Update / usage
+      shell: df -hP / |awk ' { print $4 } ' |tail -1
+      register: rootFS
+
+    - name: Update /var usage
+      shell: df -hP /var |awk ' { print $4 } ' |tail -1
+      register: VarFS
+
+    - name: Update /usr usage
+      shell: df -hP /usr |awk ' { print $4 } ' |tail -1
+      register: UsrFS
+
+    - name: Update /tmp usage
+      shell: df -hP /tmp |awk ' { print $4 } ' |tail -1
+      register: TmpFS
+
+    - name: Check current available RHN channel  
+      shell: /usr/sbin/rhn-channel --list|awk -F "-" '{print $1}'|sort -rn|uniq  
+      register: RhnCH
+
+    - name:  Find the /boot usage
+      shell: VAR1=`df -mP /boot |awk ' { print $4 } ' |tail -1`; if [ $VAR1 -gt 50 ] ; then echo "PASS"; else echo "FAIL"; fi
+      register: dfbootres
+
+    - name:  Find the root usage
+      shell: VAR2=`df -mP / |awk ' { print $4 } ' |tail -1`; if [ $VAR2 -gt 1024 ] ; then echo "PASS"; else echo "FAIL"; fi
+      register: dfrootres
+
+    - name:  Find /usr is part of root or not
+      shell:  mount |egrep "xfs|ext3|ext4|ext2" |grep /usr > /dev/null; echo $?  warn=False
+      register: usrisrootornot
+
+    - name:  Find the /usr usage
+      shell: VAR3=`df -mP /usr |awk ' { print $4 } ' |tail -1`; if [ $VAR3 -gt 500 ] ; then echo "PASS"; else echo "FAIL"; fi
+      register: dfusrres
+
+    - name:  Find /var is par of root or not
+      shell:  mount |egrep "xfs|ext3|ext4|ext2" |grep /var > /dev/null; echo $?  warn=False
+      register: varisrootornot
+
+    - name:  Find the /var usage
+      shell: VAR4=`df -mP /var |awk ' { print $4 } ' |tail -1`; if [ $VAR4 -gt 500 ] ; then echo "PASS"; else echo "FAIL"; fi
+      register: dfvarres
+
+    - name:  Find the /tmp usage
+      shell: VAR5=`df -mP /tmp |awk ' { print $4 } ' |tail -1`; if [ $VAR5 -gt 100 ] ; then echo "PASS"; else echo "FAIL"; fi
+      register: dftmpres
+
+    - set_fact:
+       VARISROOT: "{% if varisrootornot.stdout=='0' %}NO{% else %}YES{% endif %}"
+
+    - set_fact:
+       USRISROOT: "{% if usrisrootornot.stdout=='0' %}NO{% else %}YES{% endif %}"
+
+
+    - set_fact:
+        Final_Result: PASSED
+      when: dfbootres.stdout == "PASS" and dfrootres.stdout == "PASS" and dfvarres.stdout == "PASS" and dfusrres.stdout == "PASS" and dftmpres.stdout == "PASS"
+
+    - set_fact:
+        Final_Result: FAILED
+      when: dfbootres.stdout != "PASS" or dfrootres.stdout != "PASS" or dfvarres.stdout != "PASS" or dfusrres.stdout != "PASS" or dftmpres.stdout != "PASS"
+
+    - name: Check for RHSM status.
+      shell: "subscription-manager list |grep Status: |awk ' { print $2 } ' "
+      register: RHSMAD
+
+    tasks:
+      - set_fact:
+          csv_data: "{{ansible_hostname}},{{OS_REL.stdout}},{{VMVer.stdout}},{{ansible_kernel}},{{ansible_virtualization_type}},{{BootFS.stdout}},{{rootFS.stdout}},{{VarFS.stdout}},{{UsrFS.stdout}},{{TmpFS.stdout}},{{Final_Result}},{{VARISROOT}},{{USRISROOT}},{{RHSMAD.stdout}},{{RhnCH.stdout}}"
+
+      - shell: cat /dev/null > /tmp/naveen_pre_patch_data.csv
+        connection: local
+        become: no
+
+      - lineinfile:
+          path: /tmp/naveen_pre_patch_data.csv
+          insertafter: EOF
+          line: "{{ csv_data }}"
+        connection: local
+        become: no
+
+    post_tasks:
+      - lineinfile:
+          path: /tmp/naveen_pre_patch_data.csv
+          insertbefore: BOF
+          line: "Hostname,OS Release,VMwareTool,kernel Version,Server Type,Boot[>50M],Root[>1G],Var[>500M],Usr[>500M],tmp[>100M],Pre-Patch Result,VarisRoot,UsrisRoot,RHSM Status,RHN Channel"
+        run_once: true
+        connection: local
+        become: no
+
+      - name: Send the Report to Sysadmin
+        mail:
+         from: linadmin@naveen.com 
+         to: "{{ email }}"
+         subject: naveen-Ansible_PrePatch_Ananlyze_data 
+         attach: /tmp/naveen_pre_patch_data.csv
+        connection: local
+        run_once: True
+        become: no

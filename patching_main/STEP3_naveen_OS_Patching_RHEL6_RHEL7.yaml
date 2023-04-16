@@ -1,0 +1,35 @@
+---
+
+- hosts:  all 
+  become: yes 
+
+  vars_prompt:
+    - name: "Enter Approved REQ"
+      prompt: "Enter RFC or Change Number:"
+
+      private: no
+    - name: "Resource_Name"
+      prompt: "Enter Cenovus email Address: "
+      private: no
+      register: Resource_Name
+
+  pre_tasks:
+   - debug:
+      msg: "The executed resource name is {{ Resource_Name }} "
+   - name: "Confirmation to proceed"
+     pause: prompt='Please confirm you want to exterminate mankind! Press return to continue. Press Ctrl+c and then "a" to abort'
+
+# ospatch_level: [none (D)|kernel-security|security|full]
+# ospatch_reboot: [true|false(D)]
+# REPO: [LOCAL(D)|RHSM]
+# exclude_pkg: [none|pkg_name]
+
+  vars:
+    - ospatch_level: full 
+    - ospatch_reboot: true
+    - REPO: LOCAL 
+    - exclude_pkg_os6: none
+    - exclude_pkg_os7: none 
+
+  roles:
+    - RHEL6_RHEL7_OSPatch
