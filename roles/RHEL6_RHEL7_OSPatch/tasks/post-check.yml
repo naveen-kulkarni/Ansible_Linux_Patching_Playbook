@@ -1,0 +1,43 @@
+---
+
+    - name: Post-Patch Config
+      shell:
+        /sbin/route |awk ' { $1,$2,$3,$8 }';
+        df -h -F xfs -F ext3 -F ext2 -F ext4|awk '{ print $1,$6 }';
+        /sbin/ifconfig |grep inet |egrep -v "inet6|127.0.0.1"
+      register: post_patch
+      ignore_errors: True
+
+
+    - name: YUM Transaction Details 
+      shell: 
+        yum history |grep `date +%Y-%m-%d` |awk ' { print $1 }' warn=False
+      register: yum_trans 
+
+    - name: I(install), O(Obsolete),  U(updated) 
+      shell:
+        yum history summary '{{yum_trans.stdout}}' |grep sysadmin|cut -d"|" -f4 warn=False
+      register: yum_IOU
+
+    - name: Capture New Kernel & Release
+      shell:
+        uname -r;
+        cat /etc/redhat-release;
+      register: NEWINFO
+    
+    - name: Yum transaction Number and IOU numbers(Provides only executed by sysadmin)
+      debug:
+        msg: Patching yum transat number is '{{yum_trans.stdout|default(None)}}' and total updated packages is '{{ yum_IOU.stdout|default(None)}}'
+
+    - name: Display Pre-Patch Kernel & Release info
+      debug:
+        msg: " {{ OLDINFO.stdout }} "
+
+    - name: Display Post-Patch Kernel & Release info
+      debug:
+        msg: " {{ NEWINFO.stdout }} "
+
+    - debug:
+        msg: "Please validate the configuraion (Ex: Route, IP or Mountpoint). Refer Configuraiton Backup."
+      when: pre_patch.stdout != post_patch.stdout
+

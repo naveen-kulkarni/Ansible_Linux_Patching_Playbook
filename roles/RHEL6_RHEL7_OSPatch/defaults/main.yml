@@ -1,0 +1,13 @@
+---
+
+# ospatch_level: [none|kernel-security|security|full]
+ospatch_level: none 
+
+# reboot os if updates need to
+# ospatch_reboot: [true|false]
+#
+ospatch_reboot: false 
+
+# REPO: [LOCAL|RHSM]
+REPO: LOCAL
+...

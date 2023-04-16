@@ -1,0 +1,36 @@
+---
+
+  - name: Pre-Patch Config
+    shell:
+        /sbin/route |awk ' { $1,$2,$3,$8 }' ;
+        df -h -F xfs -F ext3 -F ext2 -F ext4 | awk '{ print $1,$6 }';
+        /sbin/ifconfig |grep inet |egrep -v "inet6|127.0.0.1"
+    register: pre_patch
+    ignore_errors: True
+
+  - name: Capture Old Kernel & Release
+    shell:
+        uname -r;
+        cat /etc/redhat-release;
+    register: OLDINFO
+
+
+  - name: Check for RHSM is active or not.
+    block:
+        - shell: subscription-manager list |grep Subscribed |wc -l
+          register: RHSMAD
+
+        - name: Validate RHSM
+          fail: msg="{{ inventory_hostname }} is not registered with Redhat or Satellite. Please register with valid subscription and try again."
+          when: RHSMAD.stdout == "0"
+    when: REPO == "RHSM"
+
+  - name: Check for RHN is active or not.
+    block:
+        - shell: /usr/sbin/rhn-channel --list|awk -F "-" '{print $1}'|sort -rn|uniq
+          register: RhnCHN
+
+        - name: Validate RHN
+          fail: msg="{{ inventory_hostname }} is not registered with Redhat or Satellite. Please register with valid subscription and try again."
+          when: RhnCHN.stdout == "0"
+    when: REPO == "LOCAL"

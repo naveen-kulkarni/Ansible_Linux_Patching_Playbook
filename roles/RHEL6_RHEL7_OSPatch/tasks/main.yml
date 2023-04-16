@@ -1,0 +1,24 @@
+---
+# tasks file for RHEL6_RHEL7_OSPatch 
+
+- import_tasks: pre-check.yml
+
+- include_tasks: '{{item}}'
+  with_first_found:
+    - files:
+        - '{{ ospatch_level }}-{{ansible_distribution}}-{{ansible_distribution_major_version}}.yml'
+        - '{{ ospatch_level }}-{{ansible_distribution}}-{{ansible_distribution_release}}.yml'
+        - '{{ ospatch_level }}-{{ansible_distribution}}.yml'
+        - '{{ ospatch_level }}-{{ansible_os_family}}.yml'
+      skip: true
+
+- include_tasks: '{{item}}'
+  with_first_found:
+    - files:
+        - 'reboot-{{ansible_distribution}}-{{ansible_distribution_major_version}}.yml'
+        - 'reboot-{{ansible_distribution}}-{{ansible_distribution_release}}.yml'
+        - 'reboot-{{ansible_distribution}}.yml'
+        - 'reboot-{{ansible_os_family}}.yml'
+      skip: true
+
+- include_tasks: post-check.yml

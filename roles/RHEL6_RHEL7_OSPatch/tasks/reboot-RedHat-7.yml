@@ -1,0 +1,30 @@
+---
+- name: check if reb00t is needed
+  shell: needs-restarting | wc -l
+  register: needs_restarting
+  changed_when: needs_restarting.stdout|int != 0
+
+- name: reb00t host if needed
+  block:
+  - name: Restart machine
+    shell: "sleep 5 && /sbin/shutdown -r now"
+    async: 1
+    poll: 0
+
+  - name: wait for ssh again available.
+    wait_for_connection:
+     connect_timeout: 20
+     sleep: 5
+     delay: 5
+     timeout: 300
+
+  - name: check if host has booted within last 300 sec
+    shell: test $(cat /proc/uptime | cut -d. -f1) -lt 300
+    changed_when: false
+    register: reboot_check
+
+  - name: alert if host has not been reb00ted
+    fail:
+      msg: "{{ ansible_host }} has not booted, manual check needed"
+    when: reboot_check.rc != 0
+  when: needs_restarting.stdout|int != 0 and ospatch_reboot == true

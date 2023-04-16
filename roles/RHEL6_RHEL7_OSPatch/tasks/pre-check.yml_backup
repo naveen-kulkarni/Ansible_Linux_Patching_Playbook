@@ -1,0 +1,42 @@
+---
+
+  - name: Pre-Patch Config
+    shell:
+        /sbin/route |awk ' { $1,$2,$3,$8 }' ;
+        df -h -F xfs -F ext3 -F ext2 -F ext4 | awk '{ print $1,$6 }';
+        /sbin/ifconfig |grep inet |egrep -v "inet6|127.0.0.1"
+    register: pre_patch
+    ignore_errors: True
+
+  - name: Capture Old Kernel & Release
+    shell:
+        uname -r;
+        cat /etc/redhat-release;
+    register: OLDINFO
+
+
+  - name: Check for RHSM is active or not.
+    block:
+        - shell: subscription-manager list |grep Subscribed |wc -l
+          register: RHSMAD
+
+        - name: Validate RHSM
+          fail: msg="{{ inventory_hostname }} is not registered with Redhat or Satellite. Please register with valid subscription and try again."
+          when: RHSMAD.stdout == "0"
+    when: REPO == "RHSM"
+
+
+  - name: Validate Local Repo
+    block:
+        - name: Perform a yum clean. Ignore Ansible "WARNING"
+          command: /usr/bin/yum clean all warn=False
+
+        - name: Calculate the total Repo Packages 
+          shell: yum repolist  2> /dev/null |grep repolist |awk '{ print $2 }' warn=False
+          ignore_errors: True
+          register: localrepoerror
+
+        - name: If Local Repo is empty 
+          fail: msg="{{ inventory_hostname }} doesn't have valid local repo. Please configure local repo and try again."
+          when: localrepoerror.stdout == "0"
+    when: REPO == "LOCAL"

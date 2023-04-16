@@ -1,0 +1,8 @@
+---
+- name: Perform Full OS Upgrade
+  yum:
+    name: '*'
+    state: latest
+    update_cache: yes
+    exclude: '{{ exclude_pkg_os6 }}'
+...

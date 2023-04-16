@@ -1,0 +1,23 @@
+---
+
+- name: install needed packages
+  yum:
+    name: "{{ packages }}"
+  vars:
+    packages:
+     - yum-plugin-security
+     - yum-utils
+
+- name: install security patches with yum
+  yum:
+    name: '*'
+    state: latest
+    security: yes
+    update_cache: yes
+    exclude: '{{ exclude_pkg_os7 }}'
+
+- name: install all kernel updates with yum
+  yum:
+    name: 'kernel*'
+    state: latest
+...

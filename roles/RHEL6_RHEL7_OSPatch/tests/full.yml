@@ -1,0 +1,8 @@
+---
+- hosts: all
+  remote_user: root
+  roles:
+    - RHEL6_RHEL7_OSPatch
+  vars:
+  - ospatch_level: full
+  - ospatch_reboot: true
